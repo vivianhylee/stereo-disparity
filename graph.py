@@ -46,6 +46,7 @@ def create_edge(img, width, x, y, x1, y1, diff):
     w = diff(img, x, y, x1, y1)
     return (vertex_id(x, y), vertex_id(x1, y1), w)
 
+
 def build_graph(img, width, height, diff, neighborhood_8=False):
     graph = []
     for y in xrange(height):

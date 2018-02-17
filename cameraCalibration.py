@@ -1,14 +1,30 @@
 import numpy as np
 import cv2
+import os
 import glob
 
 
 
-def readImage(folder, extension='jpg'):
+def readImage(folder, extension='png', r=1):
+    i = 0
     image_stack = []
     for fname in glob.glob(folder + '/*.' + extension):
-        image = cv2.imread(fname)
-        image_stack.append(image)
+        if i % r == 0:
+            image = cv2.imread(fname)
+        # image1 = image[:, : image.shape[1] / 2]
+        # image1 = np.rot90(image1, k=3)
+        #
+        # image2 = image[:, image.shape[1] / 2: ]
+        # image2 = np.rot90(image2, k=1)
+        #
+        # image3 = np.hstack((image1, image2))
+        # filename = ('000' + str(i))[-4: ]
+        # cv2.imwrite('image' + filename + '.png', image3)
+        # i += 1
+        # image_stack.append(image3)
+            image_stack.append(image)
+        i += 1
+
     return image_stack
 
 
@@ -159,7 +175,7 @@ def imageRemap(image, map1, map2):
     return cv2.remap(src=image, map1=map1, map2=map2, interpolation=cv2.INTER_LANCZOS4)
 
 
-def imageRectification(calibrationImages, image, boardSize, squareEdgeLength, flags):
+def imageRectification(calibrationImages, images, boardSize, squareEdgeLength, flags):
     findChessboardCornersFlags, calibrationCameraFlags, stereoRectifyFlags = flags
 
     imageHeight, imageWidth = calibrationImages[0].shape[0], calibrationImages[0].shape[1] / 2
@@ -183,28 +199,33 @@ def imageRectification(calibrationImages, image, boardSize, squareEdgeLength, fl
                                      R=R,
                                      T=T,
                                      flags=stereoRectifyFlags)
+    print Q
+    # # Reproject images
+    for i, image in enumerate(images):
+        imageHeight, imageWidth = image.shape[0], image.shape[1] / 2
+        image1 = image[:, : imageWidth, :]
+        image2 = image[:, imageWidth: , :]
 
-    # Reproject images
-    imageHeight, imageWidth = image.shape[0], image.shape[1] / 2
-    image1 = image[:, : imageWidth, :]
-    image2 = image[:, imageWidth: , :]
+        map1x, map1y = computeRectifyMap(imageHeight=imageHeight,
+                                       imageWidth=imageWidth,
+                                       intrinsicMatrix=intrinsicMatrix1,
+                                       distortionMatrix=distortionMatrix1,
+                                       R=R1,
+                                       P=P1)
 
-    map1x, map1y = computeRectifyMap(imageHeight=imageHeight,
-                                   imageWidth=imageWidth,
-                                   intrinsicMatrix=intrinsicMatrix1,
-                                   distortionMatrix=distortionMatrix1,
-                                   R=R1,
-                                   P=P1)
+        map2x, map2y = computeRectifyMap(imageHeight=imageHeight,
+                                         imageWidth=imageWidth,
+                                         intrinsicMatrix=intrinsicMatrix2,
+                                         distortionMatrix=distortionMatrix2,
+                                         R=R2,
+                                         P=P2)
 
-    map2x, map2y = computeRectifyMap(imageHeight=imageHeight,
-                                     imageWidth=imageWidth,
-                                     intrinsicMatrix=intrinsicMatrix2,
-                                     distortionMatrix=distortionMatrix2,
-                                     R=R2,
-                                     P=P2)
+        imageRec1 = imageRemap(image=image1, map1=map1x, map2=map1y)
+        imageRec2 = imageRemap(image=image2, map1=map2x, map2=map2y)
 
-    imageRec1 = imageRemap(image=image1, map1=map1x, map2=map1y)
-    imageRec2 = imageRemap(image=image2, map1=map2x, map2=map2y)
+        filename = '000' + str(i)
+        cv2.imwrite(os.path.join('view1', filename[-4: ] + '.png'), imageRec1)
+        cv2.imwrite(os.path.join('view2', filename[-4: ] + '.png'), imageRec2)
 
     return imageRec1, imageRec2
 
@@ -251,7 +272,7 @@ def anaglyph(imageLeft, imageRight, invert=False):
 
 
 if __name__ == '__main__':
-    folder = 'calibration1121'
+    folder = 'calibration0206'
 
     squareEdgeLength = 1
     boardSize = (6, 8)
@@ -261,8 +282,10 @@ if __name__ == '__main__':
     stereoRectifyFlags = cv2.CALIB_ZERO_DISPARITY
 
     # Read in images
-    imageStack = readImage(folder=folder)
-    targetImage = imageStack[5]
+    imageStack = readImage(folder=folder, extension='png', r=5)
+    targetImages = readImage(folder='stereo images')
+
+
 
     # Mono camera calibration
     # imageRect = monoCameraCalibration(imageStack=imageStack,
@@ -274,11 +297,36 @@ if __name__ == '__main__':
     # Analyph
     image1, image2 = \
         imageRectification(calibrationImages=imageStack,
-                           image=targetImage,
+                           images=targetImages,
                            boardSize=boardSize,
                            squareEdgeLength=squareEdgeLength,
                            flags=(findChessboardCornersFlags, calibrationCameraFlags, stereoRectifyFlags))
 
-    anaglyphImage = anaglyph(imageLeft=image1, imageRight=image2)
+
+    # anaglyphImage = anaglyph(imageLeft=image1, imageRight=image2)
+    # cv2.imwrite('anaglyphImage.png', anaglyphImage)
 
 
+    # cap = cv2.VideoCapture('stereo images/v1.mp4')
+    # i = 0
+    # while (cap.isOpened()):
+    #     ret, image = cap.read()
+    #     if ret:
+    #         if i % 5 == 0:
+    #             filename = ('000' + str(i))[-4: ]
+    #
+    #             image1 = image[:, : image.shape[1] / 2]
+    #             image1 = np.rot90(image1, k=3)
+    #
+    #             image2 = image[:, image.shape[1] / 2: ]
+    #             image2 = np.rot90(image2, k=1)
+    #
+    #             image3 = np.hstack((image1, image2))
+    #
+    #             cv2.imwrite('image' + filename + '.png', image3)
+    #         i += 1
+    #
+    #     else:
+    #         break
+    #
+    # cap.release()

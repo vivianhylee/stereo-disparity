@@ -11,19 +11,19 @@ class DisparityMap(object):
         self.grayL = self._preprocess(self.imageL)
         self.grayR = self._preprocess(self.imageR)
 
-        if ndisparities == 0:
-            self.ndisparities = self._computeNumberOfDisparities()
-        else:
-            self.ndisparities = ndisparities
-
+        self.ndisparities = self._computeNumberOfDisparities() #self._getNumberOfDisparities(ndisparities)
         print 'Image info: ', self.imageL.shape, self.ndisparities
-
 
     def _preprocess(self, image):
         if len(image.shape) == 2:
             return image.astype(np.uint8)
         else:
             return cv2.cvtColor(image, cv2.COLOR_BGR2GRAY).astype(np.uint8)
+
+
+    def _getNumberOfDisparities(self, ndisparities):
+        d = min(ndisparities, self.grayL.shape[1] / 4) if ndisparities != 0 else ndisparities
+        return (d / 16) * 16
 
 
     def _computeNumberOfDisparities(self):
@@ -52,8 +52,8 @@ class DisparityMap(object):
 
             disparity = max(disparity, abs(x1 - x2))
 
-        disparity = min(disparity, self.grayL.shape[1] / 3)
-        return (int(disparity * 2) / 16) * 16
+        disparity = min(int(disparity * 2), self.grayL.shape[1] / 4)
+        return (disparity / 16) * 16
 
 
     def pureBlockMatch(self, SADWindowSize=5):
@@ -81,7 +81,6 @@ class DisparityMap(object):
         Matching points along horizontal lines in local windows
         Post-filtering to eliminate bad matches
         """
-        numChannel = 3
         SADWindowSize = 3
 
         stereo = cv2.StereoSGBM()
@@ -92,7 +91,7 @@ class DisparityMap(object):
         stereo.disp12MaxDiff = 1  # -1
         stereo.speckleWindowSize = 100  # 0  # 350
         stereo.speckleRange = 32  # 2
-        stereo.P1 = SADWindowSize * SADWindowSize * 4  # 8 * numChannel * SADWindowSize * SADWindowSize
+        stereo.P1 = SADWindowSize * SADWindowSize * 8   # 4 * numChannel * SADWindowSize * SADWindowSize
         stereo.P2 = SADWindowSize * SADWindowSize * 32  # 32 * numChannel * SADWindowSize * SADWindowSize
         stereo.uniquenessRatio = 10
         stereo.preFilterCap = 63

@@ -95,9 +95,7 @@ def run_segmentation(image, print_info=False):
 
 
 if __name__ == '__main__':
-    image = cv2.imread('stereo pair images/Aloe/view1.png', 0)
-    output = generate_segmentation(image, print_info=True)
-    print type(output)
+    pass
 
 
 
