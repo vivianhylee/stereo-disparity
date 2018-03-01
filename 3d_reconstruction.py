@@ -30,3 +30,5 @@ colors = cv2.cvtColor(image1_scale, cv2.COLOR_BGR2RGB)
 points = PointCloud(coordinates=points, colors=colors)
 points = points.filter_infinity()
 points.write_ply('result.ply')
+
+

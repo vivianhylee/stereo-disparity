@@ -66,26 +66,46 @@ def post_processing(image, ksize=3):
     return cv2.medianBlur(image.astype(np.uint8), ksize=ksize)
 
 
-def run_eval(imageL, imageR, imageGT, ndisparities, cycle=10, print_out=False):
+def run_eval(imageL, imageR, imageGT, ndisparities, isDavide=False, cycle=10, print_out=False):
     total, result = 0, None
     for _ in range(cycle):
         temp = time.time()
-        result = gen_disparity(imageL=imageL, imageR=imageR, ndisparities=ndisparities)
+        result = run(imageL=imageL, imageR=imageR, ndisparities=ndisparities, isDivide=isDavide)
         total += time.time() - temp
-
     if print_out:
         print 'Image dimension: ', imageL.shape, ' using running time: ', round(total / cycle, 2)
+        print evaluate(result=result, imageGT=imageGT)
     return result
 
 
-def run(imageL, imageR, ndisparities):
-    result = gen_disparity(imageL=imageL, imageR=imageR, ndisparities=ndisparities)
+def run(imageL, imageR, ndisparities, isDivide=False):
+    if isDivide:
+        height, width = imageL.shape[: 2]
+        num_strips = height / 100
+        pool = ThreadPool(num_strips)
+        threads = []
+        for i in range(num_strips):
+            if i == num_strips - 1:
+                r = pool.apply_async(gen_disparity, args=(imageL[i * height / num_strips:, :], imageR[i * height / num_strips:, :], ndisparities))
+            else:
+                r = pool.apply_async(gen_disparity, args=(imageL[i * height / num_strips: (i + 1) * height / num_strips, :],
+                                                          imageR[i * height / num_strips: (i + 1) * height / num_strips, :],
+                                                          ndisparities))
+            threads.append(r)
+
+        pool.close()
+        pool.join()
+        result = np.concatenate([threads[i].get() for i in range(num_strips)], axis=0)
+
+    else:
+        result = gen_disparity(imageL=imageL, imageR=imageR, ndisparities=ndisparities)
+
     result_blur = post_processing(result)
     return result_blur
 
 
-def run_video(ipt_filepath, out_filepath):
 
+def run_video(ipt_filepath, out_filepath):
     out = cv2.VideoWriter(filename=out_filepath, fourcc=cv2.cv.CV_FOURCC('M','J','P','G'), fps=5, frameSize=(960, 260), isColor=0)
     cap = cv2.VideoCapture(ipt_filepath)
     frame_idx = 0
@@ -165,13 +185,13 @@ if __name__ == '__main__':
     #
     #
     #
-        if ok:
-            print 'Building disparity map for ' + subdir + '...\n'
+        # if ok:
+            # print 'Building disparity map for ' + subdir + '...\n'
 
             # Improved Semi-global block matching using segmentation watershed
-            result = run_eval(imageL=imageL, imageR=imageR, ndisparities=160, imageGT=imageGT, cycle=10, print_out=True)
-            print evaluate(result=result, imageGT=imageGT)
-
+            # result = run_eval(imageL=imageL, imageR=imageR, ndisparities=160, imageGT=imageGT, cycle=10, print_out=True)
+            # print evaluate(result=result, imageGT=imageGT)
+            #
             # output = np.vstack((result, result))
             # output[: result.shape[0], : result.shape[1]] = 0
 
@@ -186,15 +206,16 @@ if __name__ == '__main__':
             # output[: result.shape[0], : result.shape[1]] = result
             # cv2.imwrite(os.path.join(subdir, file[: -4] + '_comb1.png'), output)
 
-        print '---------------------------------------------------------------'
+        # print '---------------------------------------------------------------'
 
 
-    #     if ok:
-    #         print 'Building disparity map for ' + subdir + '...\n'
-    #
-    #         # result = run(imageL=imageL, imageR=imageR, ndisparities=160)
-    #         # cv2.imwrite(os.path.join(subdir, file[: -4] + '_comb1.png'), output)
+        if ok:
+            print 'Building disparity map for ' + subdir + '...\n'
+            result = run_eval(imageL=imageL, imageR=imageR, ndisparities=160, imageGT=imageGT, cycle=10, print_out=True, isDavide=False)
+
+            result = run_eval(imageL=imageL, imageR=imageR, ndisparities=160, imageGT=imageGT, cycle=10, print_out=True, isDavide=True)
+            cv2.imwrite(os.path.join(subdir, 'disparity_BM_filled_v3_divide.png'), result)
 
 
-    # run_video('videoplayback.mp4', 'out.mp4')
+        # run_video('videoplayback.mp4', 'out.mp4')
 

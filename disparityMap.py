@@ -11,8 +11,8 @@ class DisparityMap(object):
         self.grayL = self._preprocess(self.imageL)
         self.grayR = self._preprocess(self.imageR)
 
-        self.ndisparities = self._computeNumberOfDisparities() #self._getNumberOfDisparities(ndisparities)
-        print 'Image info: ', self.imageL.shape, self.ndisparities
+        self.ndisparities = self._getNumberOfDisparities(ndisparities)
+        # print 'Image info: ', self.imageL.shape, self.ndisparities
 
     def _preprocess(self, image):
         if len(image.shape) == 2:
