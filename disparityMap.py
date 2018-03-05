@@ -11,8 +11,11 @@ class DisparityMap(object):
         self.grayL = self._preprocess(self.imageL)
         self.grayR = self._preprocess(self.imageR)
 
-        self.ndisparities = self._getNumberOfDisparities(ndisparities)
-        # print 'Image info: ', self.imageL.shape, self.ndisparities
+        if ndisparities == 0:
+            self.ndisparities = self._computeNumberOfDisparities()
+        else:
+            self.ndisparities = self._getNumberOfDisparities(ndisparities)
+
 
     def _preprocess(self, image):
         if len(image.shape) == 2:
@@ -27,19 +30,17 @@ class DisparityMap(object):
 
 
     def _computeNumberOfDisparities(self):
-        #orb = cv2.ORB()
         orb = cv2.SIFT()
 
         kp1, des1 = orb.detectAndCompute(self.grayL, None)
         kp2, des2 = orb.detectAndCompute(self.grayR, None)
 
-        #bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         bf = cv2.BFMatcher(cv2.NORM_L2, crossCheck=True)
 
         matches = bf.match(des1, des2)
         matches = sorted(matches, key=lambda x: x.distance)[: len(matches) / 2]
 
-        disparity = 0
+        disparity = 16
         for match in matches:
             img1_idx = match.queryIdx
             img2_idx = match.trainIdx
@@ -52,8 +53,7 @@ class DisparityMap(object):
 
             disparity = max(disparity, abs(x1 - x2))
 
-        disparity = min(int(disparity * 2), self.grayL.shape[1] / 4)
-        return (disparity / 16) * 16
+        return self._getNumberOfDisparities(disparity)
 
 
     def pureBlockMatch(self, SADWindowSize=5):
@@ -68,8 +68,6 @@ class DisparityMap(object):
         """
 
         disparity = stereo.compute(self.grayL, self.grayR)
-        #disparity_visual = cv2.normalize(disparity, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
-
         return disparity
 
 
@@ -118,19 +116,7 @@ class DisparityMap(object):
                                       useDisparityGuess=0)
 
         disparity_visual = -1 * np.array(disparityLeft)
-        #disparity_visual = cv2.normalize(disparity_visual, alpha=0, beta=255, norm_type=cv2.cv.CV_MINMAX, dtype=cv2.cv.CV_8U)
-
         return disparity_visual
 
 
 
-
-
-
-
-
-
-
-if __name__ == '__main__':
-
-    pass
